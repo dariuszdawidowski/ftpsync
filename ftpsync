@@ -7,9 +7,7 @@
 import os, sys, ftplib, datetime, pickle, io, re
 from StringIO import StringIO
 
-__version__ = 1.0
-
-print "ftpsync v" + str(__version__)
+print 'ftpsync v1.0.1'
 
 if ("--help" in sys.argv) or (len(sys.argv) == 1):
     print "  Syncing current directory with remote ftp."
@@ -86,7 +84,7 @@ def ftp_walker(localdir):
     # Delete files on server side
     if arg_delete:
         for remotefile in remotelist:
-            if remotefile not in locallist:
+            if (remotefile not in locallist) and (remotefile != '.ftpsync'):
                 print 'DELE ' + remotefile
                 ftp.delete(remotefile)
                 changed = True
