@@ -7,7 +7,7 @@
 import os, sys, ftplib, datetime, pickle, io, re
 from StringIO import StringIO
 
-print 'ftpsync v1.0.1'
+print 'ftpsync v1.0.2'
 
 if ("--help" in sys.argv) or (len(sys.argv) == 1):
     print "  Syncing current directory with remote ftp."
@@ -72,11 +72,12 @@ def ftp_walker(localdir):
     # Timetable: .ftpsync file conains pickle with file dates
     changed = False
     timetable = {}
-    if '.ftpsync' in ftp.nlst('.ftpsync'):
+    try:
+        remotelistcache = ftp.nlst('.ftpsync')
         rio = StringIO()
         ftp.retrbinary('RETR .ftpsync', rio.write)
         timetable = pickle.loads(rio.getvalue())
-    else:
+    except:
         changed = True
     # List directory
     locallist = os.listdir(localdir)
@@ -133,7 +134,10 @@ def ftp_command(cmds):
             cmd_file = cmd.split(' ')
             ftp.storbinary(cmd, open(cmd_file[1].strip(), 'rb'))
         else:
-            ftp.sendcmd(cmd)
+            try:
+                ftp.sendcmd(cmd)
+            except:
+                print '(failed)'
 
 ##
 # Start
