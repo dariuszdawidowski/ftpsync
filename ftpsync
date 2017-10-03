@@ -7,7 +7,7 @@
 import os, sys, ftplib, datetime, pickle, io, re
 from StringIO import StringIO
 
-print 'ftpsync v1.0.2'
+print 'ftpsync v1.0.3'
 
 if ("--help" in sys.argv) or (len(sys.argv) == 1):
     print "  Syncing current directory with remote ftp."
@@ -24,7 +24,7 @@ if ("--help" in sys.argv) or (len(sys.argv) == 1):
     print "    # Comment"
     print "    file_name.ext"
     print "    directory_name"
-    print "    name_with_*_asterisk"
+    print "    name_with_*_wildcard"
     print ""
     print "  Meta files:"
     print "    .ftpsync is automatically created in every ftp directory with metadata syncing info"
@@ -33,7 +33,7 @@ if ("--help" in sys.argv) or (len(sys.argv) == 1):
 ##
 # Arguments
 
-login, address = sys.argv[1].split('@')
+login, address = sys.argv[1].rsplit('@', 1)
 user, password = login.split(':')
 server, remotedir = address.split('/', 1)
 arg_command = True if '-c' in sys.argv else False
