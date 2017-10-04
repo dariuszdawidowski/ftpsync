@@ -45,11 +45,11 @@ You can create .csv file and simple bash script:
 
 while IFS=, read -r user pass host remotedir
 do
-    ftpsync $user:$pass@$host/$remotedir
+    ftpsync $user:$pass@$host/$remotedir --delete
 done < servers.csv
 ```
 Example contents of servers.csv:
 ```csv
-john,p4ssw0rd,ftp.host.com,/public_html/sites/johnsite/
-jack,p4ssw0rd2,ftp.host2.com,/public_html/sites/jacksite/
+john,p4ssw0rd,ftp.host.com,/public_html/sites/johnsite
+jack,p4ssw0rd2,ftp.host2.com,/public_html/sites/jacksite
 ```
