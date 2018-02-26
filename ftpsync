@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # FTPsync 
-# (c) Copyright 2013-2017 Dariusz Dawidowski
+# (c) Copyright 2013-2018 Dariusz Dawidowski
 # MIT License
 
 import os, sys, ftplib, datetime, pickle, io, re
