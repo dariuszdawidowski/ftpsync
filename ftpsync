@@ -7,9 +7,9 @@
 import os, sys, ftplib, datetime, pickle, io, re
 from StringIO import StringIO
 
-print 'ftpsync v1.0.6'
 
 if ("--help" in sys.argv) or (len(sys.argv) == 1):
+    print 'ftpsync v1.0.7'
     print "  Syncing current directory with remote ftp."
     print ""
     print "  Usage:"
@@ -18,6 +18,7 @@ if ("--help" in sys.argv) or (len(sys.argv) == 1):
     print "  Args:"
     print "    -c '...': run raw ftp command instead of sync (use ; for multiple commands)"
     print "    --delete: delete non-existing files on server side"
+    print "    --quiet: hide messages except errors"
     print ""
     print "  Ignored files:"
     print "    .ftpignore file in the source directory:"
@@ -38,6 +39,7 @@ user, password = login.split(':', 1)
 server, remotedir = address.split('/', 1)
 arg_command = True if '-c' in sys.argv else False
 arg_delete = True if '--delete' in sys.argv or '-d' in sys.argv else False
+arg_quiet = True if '--quiet' in sys.argv else False
 
 ##
 # List of ignored files
@@ -67,7 +69,7 @@ def ftp_walker(localdir):
     global user, server, remotedir, ftp, arg_delete
     # Remote directory
     remotecwd  = '/' + remotedir.lstrip('/').rstrip('/') + localdir[len(os.getcwd()):]
-    print '->', localdir, '->', user + "@" + server + remotecwd
+    ftp_log('-> ' + localdir + ' -> ' + user + "@" + server + remotecwd)
     ftp.cwd(remotecwd)
     # Timetable: .ftpsync file conains pickle with file dates
     changed = False
@@ -86,7 +88,7 @@ def ftp_walker(localdir):
     if arg_delete:
         for remotefile in remotelist:
             if (remotefile not in locallist) and (remotefile != '.ftpsync') and (remotefile != '.') and (remotefile != '..'):
-                print 'DELE ' + remotefile
+                ftp_log('DELE ' + remotefile)
                 ftp.delete(remotefile)
                 changed = True
     # Files
@@ -96,7 +98,7 @@ def ftp_walker(localdir):
             if os.path.isfile(path):
                 localtime = datetime.datetime.fromtimestamp(os.path.getmtime(path)).strftime('%Y%m%d%H%M%S')
                 if (not timetable.has_key(file)) or (timetable[file] != localtime):
-                    print file
+                    ftp_log(file)
                     timetable[file] = localtime
                     f = open(path, 'rb')
                     ftp.storbinary('STOR ' + file, f)
@@ -125,11 +127,11 @@ def ftp_walker(localdir):
 def ftp_command(cmds):
     global user, server, remotedir, ftp
     remotecwd  = '/' + remotedir.lstrip('/').rstrip('/')
-    print '->',  user + "@" + server + remotecwd
+    ftp_log('-> ' +  user + "@" + server + remotecwd)
     ftp.cwd(remotecwd)
     for cmd in cmds:
         cmd = cmd.strip()
-        print cmd
+        ftp_log(cmd)
         if cmd[:4] == 'STOR':
             cmd_file = cmd.split(' ')
             ftp.storbinary(cmd, open(cmd_file[1].strip(), 'rb'))
@@ -137,7 +139,14 @@ def ftp_command(cmds):
             try:
                 ftp.sendcmd(cmd)
             except:
-                print '(failed)'
+                print 'Error: cmd failed'
+
+##
+# Logging
+
+def ftp_log(text):
+    global arg_quiet
+    if not arg_quiet: print text
 
 ##
 # Start
