@@ -1,35 +1,40 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
-# FTPsync 
+# FTPsync
 # (c) Copyright 2013-2018 Dariusz Dawidowski
+# (c) 2020 Python3 porting Mikolaj Machowski
 # MIT License
 
-import os, sys, ftplib, datetime, pickle, io, re
-from StringIO import StringIO
+import os, sys, pickle, re
+from ftplib import FTP
+from datetime import datetime
+from io import BytesIO
 
 
 if ("--help" in sys.argv) or (len(sys.argv) == 1):
-    print 'ftpsync v1.0.7'
-    print "  Syncing current directory with remote ftp."
-    print ""
-    print "  Usage:"
-    print "  ftpsync user:pass@ftp.address.url/remote/directory/"
-    print ""
-    print "  Args:"
-    print "    -c '...': run raw ftp command instead of sync (use ; for multiple commands)"
-    print "    --delete: delete non-existing files on server side"
-    print "    --quiet: hide messages except errors"
-    print ""
-    print "  Ignored files:"
-    print "    .ftpignore file in the source directory:"
-    print "    # Comment"
-    print "    file_name.ext"
-    print "    directory_name"
-    print "    name_with_*_wildcard"
-    print ""
-    print "  Meta files:"
-    print "    .ftpsync is automatically created in every ftp directory with metadata syncing info"
-    exit(0)
+    print("""ftpsync v2.0.0'
+     Syncing current directory with remote ftp.
+
+     Usage:
+     ftpsync user:pass@ftp.address.url/remote/directory/
+
+     Args:
+       -c '...': run raw ftp command instead of sync
+                 (use ; for multiple commands)
+       --delete: delete non-existing files on server side
+       --quiet:  hide messages except errors
+
+     Ignored files:
+       .ftpignore file in the source directory:
+       # Comment
+       file_name.ext
+       directory_name
+       name_with_*_wildcard
+
+     Meta files:
+       .ftpsync is automatically created in every ftp directory
+           with metadata syncing info""")
+    raise SystemExit
 
 ##
 # Arguments
@@ -37,24 +42,24 @@ if ("--help" in sys.argv) or (len(sys.argv) == 1):
 login, address = sys.argv[1].rsplit('@', 1)
 user, password = login.split(':', 1)
 server, remotedir = address.split('/', 1)
-arg_command = True if '-c' in sys.argv else False
-arg_delete = True if '--delete' in sys.argv or '-d' in sys.argv else False
-arg_quiet = True if '--quiet' in sys.argv else False
+arg_command = bool('-c' in sys.argv)
+arg_delete = bool('--delete' in sys.argv or '-d' in sys.argv)
+arg_quiet = bool('--quiet' in sys.argv)
 
 ##
 # List of ignored files
 
 ignored = []
 
+
 def get_ignored(filename):
-    global ignored
-    ignore_file = open(os.path.join(os.getcwd(), filename))
-    for line in ignore_file.readlines():
-        if line.strip()[:1] != "#": ignored.append(line.strip())
-    ignore_file.close()
+    with open(os.path.join(os.getcwd(), filename)) as ig_file:
+        for line in ig_file:
+            if line.strip()[:1] != "#":
+                ignored.append(line.strip())
+
 
 def is_ignored(filename):
-    global ignored
     for ignore in ignored:
         pattern = ignore.replace('*', '(.*)')
         compiled = re.compile(pattern)
@@ -65,18 +70,18 @@ def is_ignored(filename):
 ##
 # Ftp tree walker
 
+
 def ftp_walker(localdir):
-    global user, server, remotedir, ftp, arg_delete
     # Remote directory
-    remotecwd  = '/' + remotedir.lstrip('/').rstrip('/') + localdir[len(os.getcwd()):]
+    remotecwd = '/' + remotedir.strip('/') + localdir[len(os.getcwd()):]
     ftp_log('-> ' + localdir + ' -> ' + user + "@" + server + remotecwd)
     ftp.cwd(remotecwd)
-    # Timetable: .ftpsync file conains pickle with file dates
+    # Timetable: .ftpsync file contains pickle with file dates
     changed = False
     timetable = {}
     try:
-        remotelistcache = ftp.nlst('.ftpsync')
-        rio = StringIO()
+        # remotelistcache = ftp.nlst('.ftpsync')
+        rio = BytesIO()
         ftp.retrbinary('RETR .ftpsync', rio.write)
         timetable = pickle.loads(rio.getvalue())
     except:
@@ -87,47 +92,49 @@ def ftp_walker(localdir):
     # Delete files on server side
     if arg_delete:
         for remotefile in remotelist:
-            if (remotefile not in locallist) and (remotefile != '.ftpsync') and (remotefile != '.') and (remotefile != '..'):
+            if ((remotefile not in locallist)
+                    and (remotefile != '.ftpsync')
+                    and (remotefile != '.')
+                    and (remotefile != '..')):
                 ftp_log('DELE ' + remotefile)
                 ftp.delete(remotefile)
                 changed = True
     # Files
-    for file in locallist:
-        path = os.path.join(localdir, file)
-        if not is_ignored(file):
-            if os.path.isfile(path):
-                localtime = datetime.datetime.fromtimestamp(os.path.getmtime(path)).strftime('%Y%m%d%H%M%S')
-                if (not timetable.has_key(file)) or (timetable[file] != localtime):
-                    ftp_log(file)
-                    timetable[file] = localtime
-                    f = open(path, 'rb')
-                    ftp.storbinary('STOR ' + file, f)
-                    f.close()
-                    changed = True
+    for fname in locallist:
+        path = os.path.join(localdir, fname)
+        if not is_ignored(fname) and os.path.isfile(path):
+            rawtime = datetime.fromtimestamp(os.path.getmtime(path))
+            localtime = rawtime.strftime('%Y%m%d%H%M%S')
+            if (not timetable.get(fname)) or (timetable[fname] != localtime):
+                ftp_log(fname)
+                timetable[fname] = localtime
+                with open(path, 'rb') as f:
+                    ftp.storbinary('STOR ' + fname, f)
+                changed = True
     # Save timetable
     if changed:
-        wio = io.BytesIO(pickle.dumps(timetable))
+        wio = BytesIO(pickle.dumps(timetable))
         ftp.storbinary('STOR .ftpsync', wio)
     # Create directories
-    for file in os.listdir(localdir):
-        if not is_ignored(file):
-            path = os.path.join(localdir, file)
-            if os.path.isdir(path):
-                if not file in remotelist: ftp.mkd(file)
+    for fname in os.listdir(localdir):
+        if not is_ignored(fname):
+            path = os.path.join(localdir, fname)
+            if os.path.isdir(path) and not(fname in remotelist):
+                ftp.mkd(fname)
     # Recursive directories
-    for file in os.listdir(localdir):
-        if not is_ignored(file):
-            path = os.path.join(localdir, file)
+    for fname in os.listdir(localdir):
+        if not is_ignored(fname):
+            path = os.path.join(localdir, fname)
             if os.path.isdir(path):
                 ftp_walker(path)
+
 
 ##
 # Raw ftp command
 
 def ftp_command(cmds):
-    global user, server, remotedir, ftp
-    remotecwd  = '/' + remotedir.lstrip('/').rstrip('/')
-    ftp_log('-> ' +  user + "@" + server + remotecwd)
+    remotecwd = '/' + remotedir.strip('/')
+    ftp_log('-> ' + user + "@" + server + remotecwd)
     ftp.cwd(remotecwd)
     for cmd in cmds:
         cmd = cmd.strip()
@@ -139,35 +146,38 @@ def ftp_command(cmds):
             try:
                 ftp.sendcmd(cmd)
             except:
-                print 'Error: cmd failed'
+                print('Error: cmd failed')
+
 
 ##
 # Logging
 
+
 def ftp_log(text):
-    global arg_quiet
-    if not arg_quiet: print text
+    if not arg_quiet:
+        print(text)
+
 
 ##
 # Start
 
-if os.path.isfile('.ftpignore'): get_ignored('.ftpignore')
+
+if os.path.isfile('.ftpignore'):
+    get_ignored('.ftpignore')
 
 try:
-    ftp = ftplib.FTP(server)
+    ftp = FTP(server)
 except Exception as e:
-    print e
-    raise SystemExit
+    raise SystemExit(e)
 
 try:
     ftp.login(user, password)
 except Exception as e:
-    print e
-    raise SystemExit
+    raise SystemExit(e)
 
 if arg_command:
-    ftp_command(sys.argv[3].lstrip('"').rstrip('"').lstrip("'").rstrip("'").split(';'))
+    ftp_command(sys.argv[3].strip('\'"').split(';'))
 else:
     ftp_walker(os.getcwd())
-    
+
 ftp.quit()

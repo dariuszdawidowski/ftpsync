@@ -1,7 +1,7 @@
 # ftpsync
 Command-line tool to smart-synchronizing local directory with remote FTP.
 
-Simple and elegant, written in Python without 3rd-party dependencies.
+Simple and elegant, written in Python3 without 3rd-party dependencies.
 
 Usage:
 ======
