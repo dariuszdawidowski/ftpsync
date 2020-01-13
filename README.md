@@ -22,11 +22,10 @@ Put .ftpignore file in the source directory.
 
 Example content:
 
-ignored_file_name.ext
-
-ignored_directory_name
-
-also_you_can_use_*_wildcard
+    ignored_file_name.ext
+    ignored_directory_name
+    also_you_can_use_*_wildcard
+    # this_file_will_not_be_ignored.txt
 
 use hash # for comments
 
@@ -35,7 +34,7 @@ Meta files:
 
 .ftpsync is automatically created in every ftp directory with metadata syncing info
 
-Have to sync hundrets of sites?
+Have to sync hundreds of sites?
 ===============================
 
 You can create .csv file and simple bash script:
