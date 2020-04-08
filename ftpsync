@@ -15,7 +15,7 @@ from io import BytesIO
 
 
 if ("--help" in sys.argv) or (len(sys.argv) == 1):
-    print("""ftpsync v2.0.0'
+    print("""ftpsync v2.0.1
      Syncing current directory with remote ftp.
 
      Usage:
@@ -79,22 +79,24 @@ def is_ignored(filename):
 def ftp_walker(localdir):
     """Perform syncing in single directory"""
     # Remote directory
-    remotecwd = '/' + remotedir.strip('/') + localdir[len(os.getcwd()):]
-    ftp_log('-> ' + localdir + ' -> ' + user + "@" + server + remotecwd)
+    remotecwd = '/' + remotedir.strip().strip('/') + localdir[len(os.getcwd()):].replace('\\', '/').strip()
+    ftp_log('-> ' + localdir + ' -> ' + user + '@' + server + remotecwd)
     ftp.cwd(remotecwd)
+
     # Timetable: .ftpsync file contains pickle with file dates
     changed = False
     timetable = {}
     try:
-        # remotelistcache = ftp.nlst('.ftpsync')
         rio = BytesIO()
         ftp.retrbinary('RETR .ftpsync', rio.write)
         timetable = pickle.loads(rio.getvalue())
     except:
         changed = True
+
     # List directory
     locallist = os.listdir(localdir)
     remotelist = ftp.nlst()
+
     # Delete files on server side
     if arg_delete:
         for remotefile in remotelist:
@@ -105,6 +107,7 @@ def ftp_walker(localdir):
                 ftp_log('DELE ' + remotefile)
                 ftp.delete(remotefile)
                 changed = True
+
     # Files
     for fname in locallist:
         path = os.path.join(localdir, fname)
@@ -117,16 +120,19 @@ def ftp_walker(localdir):
                 with open(path, 'rb') as f:
                     ftp.storbinary('STOR ' + fname, f)
                 changed = True
+
     # Save timetable
     if changed:
         wio = BytesIO(pickle.dumps(timetable))
         ftp.storbinary('STOR .ftpsync', wio)
+
     # Create directories
     for fname in os.listdir(localdir):
         if not is_ignored(fname):
             path = os.path.join(localdir, fname)
             if os.path.isdir(path) and not fname in remotelist:
                 ftp.mkd(fname)
+
     # Recursive directories
     for fname in os.listdir(localdir):
         if not is_ignored(fname):
